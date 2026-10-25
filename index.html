@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GP-GPU Workload Atlas — what actually runs on rented GPUs</title>
+<title>GP-GPU Workload Atlas: what actually runs on rented GPUs</title>
 <meta name="description" content="A decision brief on general-purpose GPU application families: hardware fit, sharing mechanics, licensing walls and what a Pakistani cloud provider can sell first.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -145,19 +145,19 @@
   <p class="lede">This decides your utilisation ceiling, and the isolation guarantees you can put in a contract. Four mechanisms, not interchangeable.</p>
   <div class="grid">
     <div class="card">
-      <h4>MIG — hardware slices</h4>
+      <h4>MIG: hardware slices</h4>
       <p>Up to seven isolated instances per GPU, each with dedicated memory, SMs and fault isolation. Fixed fraction of performance, so quality of service holds. The only mode that survives a bank's security review.</p>
     </div>
     <div class="card">
-      <h4>Time-slicing — context switching</h4>
+      <h4>Time-slicing: context switching</h4>
       <p>Many pods share one GPU by taking turns. No memory isolation and no guaranteed share, but a single tenant can burst to the whole card when others are idle. Good for dev sandboxes and batch, not for latency promises.</p>
     </div>
     <div class="card">
-      <h4>MPS — cooperative processes</h4>
+      <h4>MPS: cooperative processes</h4>
       <p>Several processes run concurrently with voluntary thread and memory caps. Faster than time-slicing for small jobs, but a crashed process can take neighbours with it. Fine inside one tenant, risky across tenants.</p>
     </div>
     <div class="card">
-      <h4>vGPU — full VMs</h4>
+      <h4>vGPU: full VMs</h4>
       <p>VM-level sharing with live migration and hypervisor management. The right answer for desktop and mixed workloads, but it adds per-GPU licensing cost on top of the hardware, which erodes thin margins.</p>
     </div>
   </div>
@@ -169,7 +169,7 @@
   <p class="lede">A card you cannot feed is a card you cannot sell.</p>
   <p>PCIe 5 gives you roughly 64 GB/s per device. NVLink on current datacentre parts is an order of magnitude more. That gap decides which products exist:</p>
   <ul>
-    <li><b>Single-GPU work</b> — inference, batch AI, rendering, small fine-tunes — runs fine over PCIe. This is where a new provider should live.</li>
+    <li><b>Single-GPU work</b>: inference, batch AI, rendering, small fine-tunes: runs fine over PCIe. This is where a new provider should live.</li>
     <li><b>Tensor-parallel serving</b> of large models needs NVLink between the cards holding one model. Two replicas of a 70B model is a sensible 8 to 16 GPU footprint, but only if the pair is NVLink-connected.</li>
     <li><b>Multi-node training and seismic</b> need InfiniBand or RoCE at 400G plus a parallel filesystem. That is a different capital plan, and it is why those workloads belong to specialists.</li>
   </ul>
@@ -200,7 +200,7 @@
     <li><b>Media and advertising.</b> Rendering, dubbing, localisation. Deadline spikes, small budgets, fast decisions.</li>
     <li><b>Healthcare imaging.</b> Real potential, long procurement, regulatory ambiguity around patient data. Not a first market.</li>
   </ul>
-  <p class="note">The honest read: local demand for GP-GPU outside AI is real but thin. Which is exactly why the earlier advice holds — rent the first capacity, sell documents and deadlines, and let signed contracts decide when to buy metal.</p>
+  <p class="note">The honest read: local demand for GP-GPU outside AI is real but thin. Which is exactly why the earlier advice holds: rent the first capacity, sell documents and deadlines, and let signed contracts decide when to buy metal.</p>
 </section>
 
 <section>
