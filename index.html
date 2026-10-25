@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GP-GPU Workload Atlas — what actually runs on rented GPUs</title>
+<meta name="description" content="A decision brief on general-purpose GPU application families: hardware fit, sharing mechanics, licensing walls and what a Pakistani cloud provider can sell first.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0E0E10; --panel:#16161A; --panel2:#1C1C21; --line:#2A2A31;
+    --txt:#EDEAE3; --dim:#8A867E; --gold:#CE9D22; --gold-dim:#8C6A18;
+    --green:#4FA97A; --amber:#C9852B; --red:#C05A4E;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font:16px/1.6 Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+  header{padding:72px 0 40px;border-bottom:1px solid var(--line)}
+  .kicker{font:500 12px/1 JetBrains Mono,monospace;letter-spacing:.16em;text-transform:uppercase;color:var(--gold)}
+  h1{font-size:clamp(30px,5vw,46px);line-height:1.1;margin:18px 0 14px;letter-spacing:-.02em}
+  .sub{font-size:19px;color:var(--dim);max-width:720px;margin:0}
+  .meta{margin-top:26px;font:12px/1.8 JetBrains Mono,monospace;color:var(--dim)}
+  .meta b{color:var(--txt);font-weight:500}
+  section{padding:52px 0;border-bottom:1px solid var(--line)}
+  h2{font-size:26px;margin:0 0 6px;letter-spacing:-.01em}
+  .lede{color:var(--dim);margin:0 0 26px;max-width:760px}
+  h3{font-size:17px;margin:28px 0 8px;color:var(--gold);font-weight:600}
+  p{margin:0 0 14px}
+  ul{margin:0 0 16px;padding-left:20px}
+  li{margin:0 0 7px}
+  .callout{border-left:3px solid var(--gold);background:var(--panel);padding:16px 20px;margin:22px 0;border-radius:0 8px 8px 0}
+  .callout p:last-child{margin:0}
+  table{width:100%;border-collapse:collapse;font-size:14px;margin:18px 0}
+  th{text-align:left;font:600 11px/1.3 JetBrains Mono,monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);padding:10px 12px;border-bottom:1px solid var(--line)}
+  td{padding:12px;border-bottom:1px solid var(--line);vertical-align:top}
+  tr:hover td{background:#131317}
+  .tag{display:inline-block;font:600 10px/1 JetBrains Mono,monospace;letter-spacing:.06em;text-transform:uppercase;padding:4px 7px;border-radius:4px;white-space:nowrap}
+  .now{background:rgba(79,169,122,.14);color:var(--green);border:1px solid rgba(79,169,122,.3)}
+  .next{background:rgba(201,133,43,.14);color:var(--amber);border:1px solid rgba(201,133,43,.3)}
+  .no{background:rgba(192,90,78,.14);color:var(--red);border:1px solid rgba(192,90,78,.3)}
+  .grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px}
+  .card h4{margin:0 0 8px;font-size:15px;color:var(--gold)}
+  .card p{font-size:14px;color:var(--dim);margin:0}
+  .num{font:600 32px/1 JetBrains Mono,monospace;color:var(--txt);margin-bottom:6px}
+  .note{font-size:13px;color:var(--dim);font-style:italic}
+  footer{padding:44px 0 72px;color:var(--dim);font-size:13px}
+  a{color:var(--gold);text-decoration:none;border-bottom:1px solid var(--gold-dim)}
+  a:hover{border-color:var(--gold)}
+  .scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .scroll table{min-width:860px}
+  @media(max-width:640px){header{padding:48px 0 32px}section{padding:38px 0}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="kicker">Decision brief · GP-GPU</div>
+  <h1>What actually runs on a rented GPU</h1>
+  <p class="sub">Ten application families, what each one needs from the hardware, where the software licensing walls are, and which of them a Pakistani provider can sell before it owns a single card.</p>
+  <div class="meta">Prepared 25 Oct 2026 · <b>Scope:</b> general-purpose GPU computing, not consumer GPU apps<br>
+  Method: public vendor documentation, market sizing and practitioner sources. Estimates are labelled.</div>
+</header>
+
+<section>
+  <h2>How I read the question</h2>
+  <p class="lede">"GP-GPU apps" can mean three different things. I took it as the commercially interesting one.</p>
+  <p>It could mean the programming model, CUDA and OpenCL and compute shaders. It could mean consumer applications that happen to use a GPU, which is every game and most video editors. Neither helps you decide anything. So this treats GP-GPU applications as <em>workload families that someone will pay to run on rented hardware</em>. That is the question sitting behind your GPUaaS thread, and it is the one with money in it.</p>
+  <div class="callout">
+    <p>The single most useful finding: <b>the workload decides the business model, not the GPU.</b> A rendering farm and a bank's inference service can run on identical cards and have completely different utilisation curves, isolation requirements and price points. Selling "GPU hours" without knowing which family you are serving is how providers end up at 20 percent utilisation with a three million dollar asset.</p>
+  </div>
+</section>
+
+<section>
+  <h2>The ten families</h2>
+  <p class="lede">Fit is about memory and interconnect first, compute second. Most workloads that fail on a rented GPU fail because they do not fit in VRAM or because the interconnect cannot feed them.</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Family</th><th>What it is</th><th>Binding constraint</th><th>Sharing that works</th><th>Local demand</th></tr></thead>
+    <tbody>
+      <tr><td><b>LLM inference</b></td><td>Chat, extraction, summarisation, agents</td><td>VRAM for weights + KV cache; decode is memory-bandwidth bound</td><td>MIG slices, or dedicated for regulated tenants</td><td>High and growing</td></tr>
+      <tr><td><b>Batch AI</b></td><td>OCR, embeddings, speech, vision over archives</td><td>Throughput per dollar; tolerant of queueing</td><td>Time-slicing, spot</td><td>High, under-served</td></tr>
+      <tr><td><b>Fine-tuning</b></td><td>LoRA and full-parameter adaptation</td><td>VRAM and NVLink for multi-GPU; storage throughput</td><td>Dedicated node, short bursts</td><td>Moderate</td></tr>
+      <tr><td><b>Training from scratch</b></td><td>Pretraining runs</td><td>Interconnect above all; hundreds of GPUs</td><td>Whole cluster only</td><td>Effectively none</td></tr>
+      <tr><td><b>Rendering & VFX</b></td><td>Path tracing, denoise, compositing</td><td>VRAM per frame; embarrassingly parallel across frames</td><td>Time-slicing, job queue</td><td>Moderate, spikey</td></tr>
+      <tr><td><b>Video & media</b></td><td>Transcode, live packaging, dubbing</td><td>Fixed-function encoders (NVENC), not CUDA cores</td><td>Many streams per card</td><td>Moderate</td></tr>
+      <tr><td><b>CAE / CFD / FEA</b></td><td>OpenFOAM, Fluent, structural analysis</td><td>FP64 throughput, VRAM for mesh, ISV licence</td><td>Dedicated node, batch queue</td><td>Low but high value</td></tr>
+      <tr><td><b>Seismic & geoscience</b></td><td>RTM, FWI, log and pre-stack processing</td><td>VRAM, multi-node interconnect, very large storage</td><td>Whole 8-GPU nodes</td><td>Niche, highest spend</td></tr>
+      <tr><td><b>Life sciences</b></td><td>Molecular dynamics, genomics, cryo-EM</td><td>Mixed; MD wants FP64 and bandwidth, genomics wants memory</td><td>Batch queue, MIG for small jobs</td><td>Low, grant-funded</td></tr>
+      <tr><td><b>GPU data & analytics</b></td><td>GPU SQL, vector search, graph</td><td>Memory capacity; always-on</td><td>Dedicated, sold as managed service</td><td>Emerging</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="note">"Local demand" is my estimate from sector structure, not a measured figure. Treat it as a hypothesis to test with three customer conversations, not as data.</p>
+</section>
+
+<section>
+  <h2>Three commercial tiers</h2>
+  <p class="lede">The useful cut is not technical. It is whether the customer can be served today, with hardware you can rent, without a licensing negotiation you will lose.</p>
+
+  <h3>Sell now</h3>
+  <ul>
+    <li><b>LLM inference for non-sensitive work.</b> You already have the arithmetic on this from the token factory post. Break-even sits near 37.5 percent utilisation, so it needs anchor contracts, not hope.</li>
+    <li><b>Batch AI on archives.</b> The most underrated product in the market. Every bank, insurer and telco has ten years of scanned documents, call recordings and images that nobody has processed. It is throughput work, so it tolerates a shared card and a queue, and it runs at 85 to 95 percent utilisation, which is exactly where GPU economics stop hurting.</li>
+    <li><b>Rendering and video burst.</b> Studios and agencies have deadline spikes that on-premise hardware cannot absorb. Price per frame or per minute, not per hour.</li>
+    <li><b>Development sandboxes.</b> Small, cheap, high-margin, and it builds the habit. Time-sliced, capped, with a hard concurrency limit.</li>
+  </ul>
+
+  <h3>Build towards, with a partner</h3>
+  <ul>
+    <li><b>Fine-tuning and small-model training.</b> Real demand from enterprises that want a private model, but it needs NVLink nodes, fast local storage and ML engineers who can debug a failed run at 3am. Sell it when you have three repeat customers.</li>
+    <li><b>Seismic and CAE.</b> The highest spend per job in the market and the hardest to serve. It needs 8-GPU nodes with fast interconnect, hundreds of terabytes of scratch storage, and usually a licence relationship with an ISV. The right move is a partnership with an existing geoscience or CAE shop, not a solo build.</li>
+  </ul>
+
+  <h3>Avoid</h3>
+  <ul>
+    <li><b>Pretraining clusters.</b> No local buyer justifies one, and you would be competing with providers who have 100 MW.</li>
+    <li><b>FP64 HPC clusters.</b> Expensive silicon, thin margins, procurement cycles measured in years.</li>
+    <li><b>Cloud gaming and GPU VDI.</b> Latency-sensitive, thin margins, and the consumer price ceiling is set by the price of a console.</li>
+    <li><b>Anything requiring an ISV licence you do not hold.</b> See below, this is the trap that kills managed-service businesses.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>The licensing wall nobody mentions</h2>
+  <p class="lede">In AI, the software is open. In engineering simulation, it is not, and that changes what you are allowed to sell.</p>
+  <p>A GPU is not a product. A <em>licensed application running on a GPU</em> is the product. Commercial solvers are licensed per seat, per core, or per compute node, and those licences are usually held by the customer, not by you. Running a customer's ANSYS or Siemens licence on your hardware is often permitted. Reselling access to that software as a service, to customers who do not own a licence, usually is not.</p>
+  <p>This is why the safe starting portfolio is built on open-source stacks, where you can host freely:</p>
+  <ul>
+    <li><b>Simulation:</b> OpenFOAM, SU2, CalculiX, FEniCS, LAMMPS, GROMACS, OpenMM.</li>
+    <li><b>Rendering:</b> Blender Cycles, LuxCore, FFmpeg with NVENC.</li>
+    <li><b>AI:</b> vLLM, SGLang, PyTorch, ONNX Runtime, Ray, Whisper, PaddleOCR.</li>
+    <li><b>Data:</b> RAPIDS, pgvector, FAISS, DuckDB with GPU extensions.</li>
+  </ul>
+  <div class="callout">
+    <p>Practical rule: if the customer brings the licence, you are selling compute. If you bring the licence, you are selling software, and you need a reseller or service-provider agreement in writing before the first invoice.</p>
+  </div>
+</section>
+
+<section>
+  <h2>How one GPU serves many customers</h2>
+  <p class="lede">This decides your utilisation ceiling, and the isolation guarantees you can put in a contract. Four mechanisms, not interchangeable.</p>
+  <div class="grid">
+    <div class="card">
+      <h4>MIG — hardware slices</h4>
+      <p>Up to seven isolated instances per GPU, each with dedicated memory, SMs and fault isolation. Fixed fraction of performance, so quality of service holds. The only mode that survives a bank's security review.</p>
+    </div>
+    <div class="card">
+      <h4>Time-slicing — context switching</h4>
+      <p>Many pods share one GPU by taking turns. No memory isolation and no guaranteed share, but a single tenant can burst to the whole card when others are idle. Good for dev sandboxes and batch, not for latency promises.</p>
+    </div>
+    <div class="card">
+      <h4>MPS — cooperative processes</h4>
+      <p>Several processes run concurrently with voluntary thread and memory caps. Faster than time-slicing for small jobs, but a crashed process can take neighbours with it. Fine inside one tenant, risky across tenants.</p>
+    </div>
+    <div class="card">
+      <h4>vGPU — full VMs</h4>
+      <p>VM-level sharing with live migration and hypervisor management. The right answer for desktop and mixed workloads, but it adds per-GPU licensing cost on top of the hardware, which erodes thin margins.</p>
+    </div>
+  </div>
+  <p style="margin-top:22px">The engineering point: <b>more sharing means more utilization and weaker guarantees.</b> Regulated tenants buy guarantees. Startups and students buy utilisation. Run both, on separate pools, and never let the shared pool carry a contractual latency commitment.</p>
+</section>
+
+<section>
+  <h2>What the interconnect decides for you</h2>
+  <p class="lede">A card you cannot feed is a card you cannot sell.</p>
+  <p>PCIe 5 gives you roughly 64 GB/s per device. NVLink on current datacentre parts is an order of magnitude more. That gap decides which products exist:</p>
+  <ul>
+    <li><b>Single-GPU work</b> — inference, batch AI, rendering, small fine-tunes — runs fine over PCIe. This is where a new provider should live.</li>
+    <li><b>Tensor-parallel serving</b> of large models needs NVLink between the cards holding one model. Two replicas of a 70B model is a sensible 8 to 16 GPU footprint, but only if the pair is NVLink-connected.</li>
+    <li><b>Multi-node training and seismic</b> need InfiniBand or RoCE at 400G plus a parallel filesystem. That is a different capital plan, and it is why those workloads belong to specialists.</li>
+  </ul>
+  <div class="callout">
+    <p>Do not advertise an "8-GPU training cluster" on PCIe nodes. It will run, badly, and the customer will blame your platform rather than their topology. Sell what the interconnect actually supports.</p>
+  </div>
+</section>
+
+<section>
+  <h2>The utilisation and price trade</h2>
+  <p class="lede">Every family sits somewhere on this curve, and the curve, not the hourly rate, decides profit.</p>
+  <div class="grid">
+    <div class="card"><div class="num">85–95%</div><p><b>Batch work.</b> Rendering, OCR, embeddings, transcode. Cheap per unit, no latency promise, fills the troughs.</p></div>
+    <div class="card"><div class="num">30–50%</div><p><b>Interactive inference.</b> Needs headroom for peak. Must be priced at a premium or covered by a reservation.</p></div>
+    <div class="card"><div class="num">10–25%</div><p><b>Dev sandboxes and burst HPC.</b> Great for filling gaps, dangerous as a revenue base.</p></div>
+  </div>
+  <p style="margin-top:22px">The portfolio that works mixes all three: batch to keep the metal busy, reserves to pay for it, interactive to earn the margin. A provider selling only interactive inference at 30 percent utilisation is subsidising every customer, and usually does not know it.</p>
+</section>
+
+<section>
+  <h2>Where Pakistani demand actually is</h2>
+  <p class="lede">Estimates, ordered by willingness to pay rather than by enthusiasm.</p>
+  <ul>
+    <li><b>Oil and gas.</b> Seismic processing and interpretation is compute-heavy, deadline-driven, and currently sent abroad or queued on ageing local clusters. Highest spend per job, smallest number of buyers.</li>
+    <li><b>Banks and insurers.</b> Monte Carlo risk, actuarial models, fraud graphs, document intelligence. They pay for compliance, not for FLOPs, and they will not accept a shared pool without isolation. This is where the shared-capacity argument from the previous post lands.</li>
+    <li><b>Telecoms.</b> Network planning, churn modelling, speech analytics on call recordings. High volume of unglamorous batch work, which is the best kind.</li>
+    <li><b>Universities and research.</b> Price-sensitive, grant-funded, bursty, and politically useful. Good anchor for a public-sector mandate, poor anchor for a business case.</li>
+    <li><b>Media and advertising.</b> Rendering, dubbing, localisation. Deadline spikes, small budgets, fast decisions.</li>
+    <li><b>Healthcare imaging.</b> Real potential, long procurement, regulatory ambiguity around patient data. Not a first market.</li>
+  </ul>
+  <p class="note">The honest read: local demand for GP-GPU outside AI is real but thin. Which is exactly why the earlier advice holds — rent the first capacity, sell documents and deadlines, and let signed contracts decide when to buy metal.</p>
+</section>
+
+<section>
+  <h2>What I would do</h2>
+  <ol>
+    <li><b>Start with two products, not ten.</b> Batch AI on archives, priced per document or per hour of audio, and interactive inference for non-sensitive work. Both run on the same rented 8 to 16 GPU slice, both are open-source stacks, neither needs an ISV licence.</li>
+    <li><b>Add rendering as burst capacity,</b> sold per frame to media customers. It fills nights and weekends, which is when inference is idle.</li>
+    <li><b>Keep regulated work on isolated slices</b> and write the isolation guarantee into the contract before a bank asks for it.</li>
+    <li><b>Partner for seismic and CAE.</b> Bring the customer, not the solver. Take a margin on compute and let the specialist own the licence and the support burden.</li>
+    <li><b>Publish utilisation, never prices, in the first year.</b> The number that kills new GPU businesses is the gap between booked and billed hours. Measure it weekly.</li>
+  </ol>
+  <div class="callout">
+    <p>The one-line version: <b>sell batch throughput to fund the metal, sell isolated inference to earn the margin, and refuse any workload whose licence, interconnect or latency promise you cannot honour.</b></p>
+  </div>
+</section>
+
+<section>
+  <h2>What is verified and what is not</h2>
+  <ul>
+    <li><b>Verified against vendor documentation:</b> MIG slice counts and isolation properties; time-slicing has no memory isolation; MPS is cooperative with weaker fault isolation; vGPU provides VM-level sharing and carries separate licensing.</li>
+    <li><b>Verified against public market sizing:</b> GPUaaS is a tens-of-billions market in 2025 with AI inference the fastest-growing workload segment and HPC plus rendering a single-digit share. Different research houses disagree on absolute size by almost an order of magnitude, so treat the direction as reliable and the totals as estimates.</li>
+    <li><b>Not verified:</b> Pakistani demand figures. No credible public data exists at segment level. My ordering is a hypothesis from sector structure.</li>
+    <li><b>Vendor claims not tested:</b> time-to-result improvements quoted by seismic cloud platforms, and speedup multiples quoted for GPU CFD solvers. Both are plausible and both are marketing until measured on your own mesh.</li>
+  </ul>
+</section>
+
+<footer>
+  <p><b>Sources.</b> NVIDIA, <a href="https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/latest/gpu-sharing.html">Time-slicing GPUs in Kubernetes</a> · NVIDIA, <a href="https://developer.nvidia.com/blog/improving-gpu-utilization-in-kubernetes">Improving GPU utilization in Kubernetes</a> (mechanism comparison table) · NVIDIA, <a href="https://docs.nvidia.com/vgpu/latest/grid-vgpu-user-guide/changing-vgpu-scheduling-policy.html">vGPU scheduling policies</a> · Google Cloud, <a href="https://cloud.google.com/kubernetes-engine/docs/concepts/timesharing-gpus">GPU sharing strategies in GKE</a> · Civo, <a href="https://www.civo.com/blog/gpu-cloud-non-ai-workloads-rendering-simulation-scientific-computing">GPU cloud for non-AI workloads</a> · DC Market Insights, GPU as a Service market sizing 2025–2035 · Research and Markets, GPUaaS forecast 2026–2036 · NASA Ames, <a href="https://www.nas.nasa.gov/pubs/ams/2023/09-07-23.html">NVIDIA developments for CFD on GPUs</a> · GPGPU 2026 workshop scope (scientific computing, graphics, bioinformatics).</p>
+  <p>Prepared for Waqar Uddin · 25 October 2026 · Estimates labelled as such. No vendor of Pakistani GPU capacity is named or endorsed in this brief.</p>
+</footer>
+
+</div>
+</body>
+</html>
